@@ -1,4 +1,5 @@
 
+import os
 import joblib
 import pandas as pd
 from flask import Flask, request, jsonify
@@ -11,13 +12,33 @@ super_kart_api = Flask("SuperKart Revenue Predictor")
 
 
 # ---------------------------------------------------------
-# Load trained model artifact
+# Load trained model
 # ---------------------------------------------------------
-model_artifact = joblib.load("superkart_model_v1_0.joblib")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-model = model_artifact["model"]
-feature_columns = model_artifact["feature_columns"]
-model_name = model_artifact["model_name"]
+MODEL_PATH = os.path.join(
+    BASE_DIR,
+    "superkart_model_v1_0.joblib"
+)
+
+model = joblib.load(MODEL_PATH)
+
+model_name = type(model).__name__
+
+print("Model loaded successfully:", model_name)
+
+
+# ---------------------------------------------------------
+# Define feature columns used during training
+# ---------------------------------------------------------
+FEATURE_COLUMNS_PATH = os.path.join(
+    BASE_DIR,
+    "superkart_feature_columns.joblib"
+)
+
+feature_columns = joblib.load(FEATURE_COLUMNS_PATH)
+
+print("Number of training features:", len(feature_columns))
 
 
 # ---------------------------------------------------------
@@ -31,13 +52,13 @@ def preprocess_input(input_data):
         drop_first=True
     )
 
-    # Make sure input columns match training columns
+    # Make input columns exactly match training columns
     input_data = input_data.reindex(
         columns=feature_columns,
         fill_value=0
     )
 
-    # Convert everything to numeric float
+    # Convert everything to float
     input_data = input_data.astype(float)
 
     return input_data
@@ -63,12 +84,15 @@ def predict_sales():
 
     try:
 
-        # Read JSON request
         product_data = request.get_json()
 
-        # Extract SuperKart features
-        sample = {
+        if not product_data:
+            return jsonify({
+                "error": "No JSON data received."
+            }), 400
 
+
+        sample = {
             "Product_Weight":
                 product_data["Product_Weight"],
 
@@ -105,15 +129,14 @@ def predict_sales():
         input_data = pd.DataFrame([sample])
 
 
-        # Apply same preprocessing used during training
+        # Preprocess
         processed_data = preprocess_input(input_data)
 
 
-        # Make prediction
+        # Prediction
         prediction = model.predict(processed_data)[0]
 
 
-        # Return result
         return jsonify({
             "Predicted_Product_Store_Sales_Total":
                 float(prediction)
@@ -142,7 +165,6 @@ def predict_sales_batch():
 
     try:
 
-        # Check if a file was provided
         if "file" not in request.files:
 
             return jsonify({
@@ -150,19 +172,14 @@ def predict_sales_batch():
             }), 400
 
 
-        # Get uploaded CSV
         file = request.files["file"]
 
-
-        # Read CSV
         input_data = pd.read_csv(file)
 
-
-        # Keep original data for final response
         result_data = input_data.copy()
 
 
-        # Apply preprocessing
+        # Preprocess batch data
         processed_data = preprocess_input(input_data)
 
 
@@ -170,13 +187,11 @@ def predict_sales_batch():
         predictions = model.predict(processed_data)
 
 
-        # Add predictions to original DataFrame
         result_data[
             "Predicted_Product_Store_Sales_Total"
         ] = predictions
 
 
-        # Convert DataFrame to dictionary
         result = result_data.to_dict(
             orient="records"
         )
@@ -199,6 +214,6 @@ if __name__ == "__main__":
 
     super_kart_api.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=7860,
+        debug=False
     )
