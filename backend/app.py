@@ -13,7 +13,7 @@ super_kart_api = Flask("SuperKart Revenue Predictor")
 # ---------------------------------------------------------
 # Load trained model artifact
 # ---------------------------------------------------------
-model_artifact = joblib.load("superkart_sales_model.pkl")
+model_artifact = joblib.load("superkart_model_v1_0.joblib")
 
 model = model_artifact["model"]
 feature_columns = model_artifact["feature_columns"]
