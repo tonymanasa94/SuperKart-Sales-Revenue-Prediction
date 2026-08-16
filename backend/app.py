@@ -12,14 +12,23 @@ super_kart_api = Flask("SuperKart Revenue Predictor")
 
 
 # ---------------------------------------------------------
-# Load trained model
+# Base directory
 # ---------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+# ---------------------------------------------------------
+# Load trained model
+# ---------------------------------------------------------
 MODEL_PATH = os.path.join(
     BASE_DIR,
     "superkart_model_v1_0.joblib"
 )
+
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(
+        f"Model file not found: {MODEL_PATH}"
+    )
 
 model = joblib.load(MODEL_PATH)
 
@@ -29,12 +38,17 @@ print("Model loaded successfully:", model_name)
 
 
 # ---------------------------------------------------------
-# Define feature columns used during training
+# Load feature columns used during training
 # ---------------------------------------------------------
 FEATURE_COLUMNS_PATH = os.path.join(
     BASE_DIR,
     "superkart_feature_columns.joblib"
 )
+
+if not os.path.exists(FEATURE_COLUMNS_PATH):
+    raise FileNotFoundError(
+        f"Feature columns file not found: {FEATURE_COLUMNS_PATH}"
+    )
 
 feature_columns = joblib.load(FEATURE_COLUMNS_PATH)
 
@@ -42,23 +56,40 @@ print("Number of training features:", len(feature_columns))
 
 
 # ---------------------------------------------------------
+# Required original input features
+# ---------------------------------------------------------
+REQUIRED_FEATURES = [
+    "Product_Weight",
+    "Product_Sugar_Content",
+    "Product_Allocated_Area",
+    "Product_Type",
+    "Product_MRP",
+    "Store_Id",
+    "Store_Establishment_Year",
+    "Store_Size",
+    "Store_Location_City_Type",
+    "Store_Type"
+]
+
+
+# ---------------------------------------------------------
 # Helper function for preprocessing
 # ---------------------------------------------------------
 def preprocess_input(input_data):
 
-    # Convert categorical variables into dummy variables
+    # Create dummy variables for categorical columns
     input_data = pd.get_dummies(
         input_data,
         drop_first=True
     )
 
-    # Make input columns exactly match training columns
+    # Match exact training feature structure
     input_data = input_data.reindex(
         columns=feature_columns,
         fill_value=0
     )
 
-    # Convert everything to float
+    # Convert to float
     input_data = input_data.astype(float)
 
     return input_data
@@ -72,7 +103,8 @@ def home():
 
     return jsonify({
         "message": "Welcome to the SuperKart Sales Revenue Prediction API!",
-        "model": model_name
+        "model": model_name,
+        "status": "running"
     })
 
 
@@ -92,40 +124,28 @@ def predict_sales():
             }), 400
 
 
+        # Check for missing features
+        missing_features = [
+            feature
+            for feature in REQUIRED_FEATURES
+            if feature not in product_data
+        ]
+
+        if missing_features:
+            return jsonify({
+                "error": "Missing required features.",
+                "missing_features": missing_features
+            }), 400
+
+
+        # Create input sample
         sample = {
-            "Product_Weight":
-                product_data["Product_Weight"],
-
-            "Product_Sugar_Content":
-                product_data["Product_Sugar_Content"],
-
-            "Product_Allocated_Area":
-                product_data["Product_Allocated_Area"],
-
-            "Product_Type":
-                product_data["Product_Type"],
-
-            "Product_MRP":
-                product_data["Product_MRP"],
-
-            "Store_Id":
-                product_data["Store_Id"],
-
-            "Store_Establishment_Year":
-                product_data["Store_Establishment_Year"],
-
-            "Store_Size":
-                product_data["Store_Size"],
-
-            "Store_Location_City_Type":
-                product_data["Store_Location_City_Type"],
-
-            "Store_Type":
-                product_data["Store_Type"]
+            feature: product_data[feature]
+            for feature in REQUIRED_FEATURES
         }
 
 
-        # Convert sample into DataFrame
+        # Convert to DataFrame
         input_data = pd.DataFrame([sample])
 
 
@@ -133,7 +153,7 @@ def predict_sales():
         processed_data = preprocess_input(input_data)
 
 
-        # Prediction
+        # Make prediction
         prediction = model.predict(processed_data)[0]
 
 
@@ -141,13 +161,6 @@ def predict_sales():
             "Predicted_Product_Store_Sales_Total":
                 float(prediction)
         })
-
-
-    except KeyError as error:
-
-        return jsonify({
-            "error": f"Missing required feature: {str(error)}"
-        }), 400
 
 
     except Exception as error:
@@ -165,6 +178,7 @@ def predict_sales_batch():
 
     try:
 
+        # Check uploaded file
         if "file" not in request.files:
 
             return jsonify({
@@ -174,28 +188,58 @@ def predict_sales_batch():
 
         file = request.files["file"]
 
+        if file.filename == "":
+            return jsonify({
+                "error": "No CSV file selected."
+            }), 400
+
+
+        # Read CSV
         input_data = pd.read_csv(file)
 
+
+        # Check required columns
+        missing_features = [
+            feature
+            for feature in REQUIRED_FEATURES
+            if feature not in input_data.columns
+        ]
+
+        if missing_features:
+            return jsonify({
+                "error": "CSV is missing required columns.",
+                "missing_features": missing_features
+            }), 400
+
+
+        # Keep original data
         result_data = input_data.copy()
 
 
-        # Preprocess batch data
-        processed_data = preprocess_input(input_data)
+        # Use only expected input features
+        model_input = input_data[
+            REQUIRED_FEATURES
+        ].copy()
+
+
+        # Preprocess
+        processed_data = preprocess_input(model_input)
 
 
         # Generate predictions
         predictions = model.predict(processed_data)
 
 
+        # Add predictions
         result_data[
             "Predicted_Product_Store_Sales_Total"
         ] = predictions
 
 
+        # Return records
         result = result_data.to_dict(
             orient="records"
         )
-
 
         return jsonify(result)
 
