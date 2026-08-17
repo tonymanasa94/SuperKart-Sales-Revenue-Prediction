@@ -38,21 +38,17 @@ print("Model loaded successfully:", model_name)
 
 
 # ---------------------------------------------------------
-# Load feature columns used during training
+# Load fitted preprocessor
 # ---------------------------------------------------------
-FEATURE_COLUMNS_PATH = os.path.join(
+
+PREPROCESSOR_PATH = os.path.join(
     BASE_DIR,
-    "superkart_feature_columns.joblib"
+    "superkart_preprocessor.joblib"
 )
 
-if not os.path.exists(FEATURE_COLUMNS_PATH):
-    raise FileNotFoundError(
-        f"Feature columns file not found: {FEATURE_COLUMNS_PATH}"
-    )
+preprocessor = joblib.load(PREPROCESSOR_PATH)
 
-feature_columns = joblib.load(FEATURE_COLUMNS_PATH)
-
-print("Number of training features:", len(feature_columns))
+print("Preprocessor loaded successfully!")
 
 
 # ---------------------------------------------------------
@@ -77,22 +73,9 @@ REQUIRED_FEATURES = [
 # ---------------------------------------------------------
 def preprocess_input(input_data):
 
-    # Create dummy variables for categorical columns
-    input_data = pd.get_dummies(
-        input_data,
-        drop_first=True
-    )
+    processed_data = preprocessor.transform(input_data)
 
-    # Match exact training feature structure
-    input_data = input_data.reindex(
-        columns=feature_columns,
-        fill_value=0
-    )
-
-    # Convert to float
-    input_data = input_data.astype(float)
-
-    return input_data
+    return processed_data
 
 
 # ---------------------------------------------------------
