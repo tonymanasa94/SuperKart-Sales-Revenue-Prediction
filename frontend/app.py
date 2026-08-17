@@ -128,7 +128,7 @@ store_establishment_year = st.number_input(
 store_size = st.selectbox(
     "Store Size",
     [
-        "Low",
+        "Small",
         "Medium",
         "High"
     ]
@@ -149,8 +149,8 @@ store_type = st.selectbox(
     "Store Type",
     [
         "Departmental Store",
-        "Supermarket Type 1",
-        "Supermarket Type 2",
+        "Supermarket Type1",
+        "Supermarket Type2",
         "Food Mart"
     ]
 )
@@ -309,7 +309,6 @@ Product_Sugar_Content
 Product_Allocated_Area
 Product_Type
 Product_MRP
-Store_Id
 Store_Establishment_Year
 Store_Size
 Store_Location_City_Type
