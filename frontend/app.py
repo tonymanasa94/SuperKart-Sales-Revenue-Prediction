@@ -48,8 +48,9 @@ st.markdown("### Product Information")
 product_weight = st.number_input(
     "Product Weight",
     min_value=0.0,
-    step=0.1,
-    value=10.0
+    step=0.01,
+    value=10.0,
+    format="%.2f"
 )
 
 
@@ -67,8 +68,9 @@ product_allocated_area = st.number_input(
     "Product Allocated Area",
     min_value=0.0,
     max_value=1.0,
-    step=0.01,
-    value=0.10
+    step=0.001,
+    value=0.100,
+    format="%.3f"
 )
 
 
@@ -98,8 +100,9 @@ product_type = st.selectbox(
 product_mrp = st.number_input(
     "Product MRP",
     min_value=0.0,
-    step=1.0,
-    value=100.0
+    step=0.01,
+    value=100.0,
+    format="%.2f"
 )
 
 
@@ -108,12 +111,6 @@ product_mrp = st.number_input(
 # ---------------------------------------------------------
 
 st.markdown("### Store Information")
-
-
-store_id = st.text_input(
-    "Store ID",
-    value=""
-)
 
 
 store_establishment_year = st.number_input(
@@ -128,7 +125,7 @@ store_establishment_year = st.number_input(
 store_size = st.selectbox(
     "Store Size",
     [
-        "Small",
+        "Low",
         "Medium",
         "High"
     ]
@@ -158,37 +155,19 @@ store_type = st.selectbox(
 
 # ---------------------------------------------------------
 # Create Input Dictionary
+# Store_Id has been removed from the model
 # ---------------------------------------------------------
 
 input_data = {
     "Product_Weight": product_weight,
-
-    "Product_Sugar_Content":
-        product_sugar_content,
-
-    "Product_Allocated_Area":
-        product_allocated_area,
-
-    "Product_Type":
-        product_type,
-
-    "Product_MRP":
-        product_mrp,
-
-    "Store_Id":
-        store_id,
-
-    "Store_Establishment_Year":
-        store_establishment_year,
-
-    "Store_Size":
-        store_size,
-
-    "Store_Location_City_Type":
-        store_location_city_type,
-
-    "Store_Type":
-        store_type
+    "Product_Sugar_Content": product_sugar_content,
+    "Product_Allocated_Area": product_allocated_area,
+    "Product_Type": product_type,
+    "Product_MRP": product_mrp,
+    "Store_Establishment_Year": store_establishment_year,
+    "Store_Size": store_size,
+    "Store_Location_City_Type": store_location_city_type,
+    "Store_Type": store_type
 }
 
 
@@ -214,73 +193,64 @@ if st.button(
     use_container_width=True
 ):
 
-    if store_id.strip() == "":
+    try:
 
-        st.warning(
-            "Please enter a Store ID."
+        response = requests.post(
+            f"{BACKEND_URL}/v1/sales",
+            json=input_data,
+            timeout=30
         )
 
-    else:
+        if response.status_code == 200:
 
-        try:
+            result = response.json()
 
-            response = requests.post(
-                f"{BACKEND_URL}/v1/sales",
-                json=input_data,
-                timeout=30
+            prediction = result[
+                "Predicted_Product_Store_Sales_Total"
+            ]
+
+            st.success(
+                "Prediction completed successfully!"
             )
 
+            st.metric(
+                label="Predicted Product Store Sales Total",
+                value=f"${prediction:,.2f}"
+            )
 
-            if response.status_code == 200:
+        else:
 
-                result = response.json()
+            try:
+                error_message = response.json()
 
-                prediction = result[
-                    "Predicted_Product_Store_Sales_Total"
-                ]
-
-                st.success(
-                    "Prediction completed successfully!"
-                )
-
-                st.metric(
-                    label="Predicted Product Store Sales Total",
-                    value=f"${prediction:,.2f}"
-                )
-
-
-            else:
-
-                try:
-                    error_message = response.json()
-                except Exception:
-                    error_message = response.text
-
-                st.error(
-                    f"Prediction failed: {error_message}"
-                )
-
-
-        except requests.exceptions.ConnectionError:
+            except Exception:
+                error_message = response.text
 
             st.error(
-                "Unable to connect to the SuperKart "
-                "prediction API."
+                f"Prediction failed: {error_message}"
             )
 
 
-        except requests.exceptions.Timeout:
+    except requests.exceptions.ConnectionError:
 
-            st.error(
-                "The prediction request timed out."
-            )
+        st.error(
+            "Unable to connect to the SuperKart "
+            "prediction API."
+        )
 
 
-        except Exception as error:
+    except requests.exceptions.Timeout:
 
-            st.error(
-                f"An error occurred: {error}"
-            )
+        st.error(
+            "The prediction request timed out."
+        )
+
+
+    except Exception as error:
+
+        st.error(
+            f"An error occurred: {error}"
+        )
 
 
 # =========================================================
@@ -331,9 +301,13 @@ if uploaded_file is not None:
     try:
 
         # Preview uploaded file
-        preview_data = pd.read_csv(uploaded_file)
+        preview_data = pd.read_csv(
+            uploaded_file
+        )
 
-        st.write("### Uploaded Data Preview")
+        st.write(
+            "### Uploaded Data Preview"
+        )
 
         st.dataframe(
             preview_data.head(),
@@ -385,7 +359,9 @@ if uploaded_file is not None:
                     "Batch predictions completed successfully!"
                 )
 
-                st.write("### Prediction Results")
+                st.write(
+                    "### Prediction Results"
+                )
 
                 st.dataframe(
                     prediction_df,
@@ -403,8 +379,9 @@ if uploaded_file is not None:
                 st.download_button(
                     label="Download Predictions as CSV",
                     data=csv,
-                    file_name=
-                    "superkart_sales_predictions.csv",
+                    file_name=(
+                        "superkart_sales_predictions.csv"
+                    ),
                     mime="text/csv",
                     use_container_width=True
                 )
@@ -414,6 +391,7 @@ if uploaded_file is not None:
 
                 try:
                     error_message = response.json()
+
                 except Exception:
                     error_message = response.text
 
