@@ -304,6 +304,11 @@ if uploaded_file is not None:
         preview_data = pd.read_csv(
             uploaded_file
         )
+        # Remove accidental unnamed columns
+        preview_data = preview_data.loc[
+        :,
+        ~preview_data.columns.str.startswith("Unnamed:")
+        ]
 
         st.write(
             "### Uploaded Data Preview"
