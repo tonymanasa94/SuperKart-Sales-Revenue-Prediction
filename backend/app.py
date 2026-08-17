@@ -178,7 +178,11 @@ def predict_sales_batch():
 
         # Read CSV
         input_data = pd.read_csv(file)
-
+        # Remove accidental unnamed columns
+        input_data = input_data.loc[
+        :,
+         ~input_data.columns.str.startswith("Unnamed:")
+        ]
 
         # Check required columns
         missing_features = [
