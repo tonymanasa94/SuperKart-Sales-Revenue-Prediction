@@ -60,7 +60,6 @@ REQUIRED_FEATURES = [
     "Product_Allocated_Area",
     "Product_Type",
     "Product_MRP",
-    "Store_Id",
     "Store_Establishment_Year",
     "Store_Size",
     "Store_Location_City_Type",
